@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>광고 수익성 대시보드</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/recharts@2.5.0/dist/Recharts.js"></script>
@@ -14,6 +14,349 @@
 </head>
 <body>
     <div id="root"></div>
-    <script type="text/babel" src="dashboard.js"></script>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } = Recharts;
+        
+        // 아이콘 컴포넌트
+        const SaveIcon = () => <span>💾</span>;
+        const DownloadIcon = () => <span>📥</span>;
+        const TrashIcon = () => <span>🗑️</span>;
+        const AlertCircleIcon = () => <span>⚠️</span>;
+        const CheckCircleIcon = () => <span>✅</span>;
+
+        const ProfitabilityDashboard = () => {
+            const [cvr, setCvr] = useState(2);
+            const [ctr, setCtr] = useState(1.5);
+            const [budget, setBudget] = useState(5000000);
+            const [aov, setAov] = useState(150000);
+            const [cpc, setCpc] = useState(1000);
+            const [baseCpc] = useState(1000);
+            const [costRate, setCostRate] = useState(30);
+            const [savedScenarios, setSavedScenarios] = useState([]);
+
+            // 숫자 포맷 함수
+            const formatNumber = (num) => {
+                return Math.round(num).toLocaleString();
+            };
+
+            const formatCurrency = (num) => {
+                return '₩' + formatNumber(num);
+            };
+
+            // 계산 함수
+            const calculateMetrics = () => {
+                const cvrDecimal = cvr / 100;
+                const ctrDecimal = ctr / 100;
+                const costRateDecimal = costRate / 100;
+
+                const clicks = budget / cpc;
+                const impressions = clicks / ctrDecimal;
+                const conversions = clicks * cvrDecimal;
+                const actualRevenue = conversions * aov;
+                const actualRoas = actualRevenue / budget;
+
+                const cpa = conversions > 0 ? budget / conversions : 0;
+                const cpm = impressions > 0 ? (budget / impressions) * 1000 : 0;
+
+                const cogs = actualRevenue * costRateDecimal;
+                const grossProfit = actualRevenue - cogs;
+                const grossMargin = actualRevenue > 0 ? (grossProfit / actualRevenue) * 100 : 0;
+                const netProfit = grossProfit - budget;
+                const netMargin = actualRevenue > 0 ? (netProfit / actualRevenue) * 100 : 0;
+                const roi = (netProfit / budget) * 100;
+
+                const breakevenRoas = 1 / (1 - costRateDecimal);
+                const safetyMargin = ((actualRoas - breakevenRoas) / breakevenRoas) * 100;
+
+                return {
+                    actualRevenue,
+                    actualRoas,
+                    conversions,
+                    clicks,
+                    impressions,
+                    cpc,
+                    cpa,
+                    cpm,
+                    cogs,
+                    grossProfit,
+                    grossMargin,
+                    netProfit,
+                    netMargin,
+                    roi,
+                    breakevenRoas,
+                    safetyMargin
+                };
+            };
+
+            const metrics = calculateMetrics();
+
+            // 시나리오 저장
+            const saveScenario = () => {
+                const newScenario = {
+                    id: Date.now(),
+                    저장시간: new Date().toLocaleString('ko-KR'),
+                    CVR: cvr,
+                    CTR: ctr,
+                    예산: budget,
+                    객단가: aov,
+                    CPC: cpc,
+                    원가율: costRate,
+                    매출: metrics.actualRevenue,
+                    순이익: metrics.netProfit,
+                    ROAS: metrics.actualRoas,
+                    ROI: metrics.roi
+                };
+                setSavedScenarios([...savedScenarios, newScenario]);
+                alert('시나리오가 저장되었습니다!');
+            };
+
+            return (
+                <div className="p-4 bg-gray-100 min-h-screen">
+                    <div className="max-w-7xl mx-auto">
+                        <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">💰 광고 수익성 동적 대시보드</h1>
+
+                        {/* 메인 스코어 카드 */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+                                <p className="text-sm text-gray-600 mb-2">실제 ROAS</p>
+                                <p className={`text-4xl font-bold ${metrics.actualRoas >= metrics.breakevenRoas ? 'text-green-600' : 'text-red-600'}`}>
+                                    {metrics.actualRoas.toFixed(2)}x
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    손익분기: {metrics.breakevenRoas.toFixed(2)}x
+                                </p>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+                                <p className="text-sm text-gray-600 mb-2">순이익</p>
+                                <p className={`text-4xl font-bold ${metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {formatCurrency(metrics.netProfit)}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    이익률: {metrics.netMargin.toFixed(1)}%
+                                </p>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+                                <p className="text-sm text-gray-600 mb-2">ROI</p>
+                                <p className={`text-4xl font-bold ${metrics.roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {metrics.roi.toFixed(0)}%
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    CPA: {formatCurrency(metrics.cpa)}
+                                </p>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+                                <p className="text-sm text-gray-600 mb-2">안전마진</p>
+                                <p className={`text-4xl font-bold ${metrics.safetyMargin >= 20 ? 'text-green-600' : metrics.safetyMargin >= 0 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                    {metrics.safetyMargin.toFixed(0)}%
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {metrics.safetyMargin >= 20 ? '안전' : metrics.safetyMargin >= 0 ? '주의' : '위험'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* 액션 버튼 */}
+                        <div className="flex gap-4 mb-4 flex-wrap">
+                            <button
+                                onClick={saveScenario}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                <SaveIcon />
+                                시나리오 저장
+                            </button>
+                        </div>
+
+                        {/* 입력 컨트롤 */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            {/* 좌측 컨트롤 */}
+                            <div className="bg-white rounded-lg shadow p-4">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4">📊 성과 지표 조정</h3>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-medium text-gray-700">CVR (%)</label>
+                                            <span className="text-lg font-bold text-blue-600">{cvr}%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            value={cvr}
+                                            onChange={(e) => setCvr(parseFloat(e.target.value))}
+                                            className="w-full"
+                                            min="0.1"
+                                            max="10"
+                                            step="0.1"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-medium text-gray-700">CTR (%)</label>
+                                            <span className="text-lg font-bold text-blue-600">{ctr}%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            value={ctr}
+                                            onChange={(e) => setCtr(parseFloat(e.target.value))}
+                                            className="w-full"
+                                            min="0.1"
+                                            max="10"
+                                            step="0.1"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-medium text-gray-700">원가율 (%)</label>
+                                            <span className="text-lg font-bold text-blue-600">{costRate}%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            value={costRate}
+                                            onChange={(e) => setCostRate(parseInt(e.target.value))}
+                                            className="w-full"
+                                            min="10"
+                                            max="90"
+                                            step="1"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 우측 컨트롤 */}
+                            <div className="bg-white rounded-lg shadow p-4">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4">💵 비용 지표 조정</h3>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-medium text-gray-700">예산 (원)</label>
+                                            <span className="text-lg font-bold text-blue-600">{formatCurrency(budget)}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            value={budget}
+                                            onChange={(e) => setBudget(parseInt(e.target.value))}
+                                            className="w-full"
+                                            min="1000000"
+                                            max="20000000"
+                                            step="100000"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-medium text-gray-700">객단가 (원)</label>
+                                            <span className="text-lg font-bold text-blue-600">{formatCurrency(aov)}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            value={aov}
+                                            onChange={(e) => setAov(parseInt(e.target.value))}
+                                            className="w-full"
+                                            min="10000"
+                                            max="1000000"
+                                            step="1000"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-medium text-gray-700">CPC (원)</label>
+                                            <span className="text-lg font-bold text-blue-600">{formatCurrency(cpc)}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            value={cpc}
+                                            onChange={(e) => setCpc(parseInt(e.target.value))}
+                                            className="w-full"
+                                            min="100"
+                                            max="5000"
+                                            step="10"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 상세 지표 */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                            <h3 className="text-lg font-bold text-gray-800 mb-4">📊 상세 지표</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div className="border-b pb-2">
+                                    <span className="text-sm text-gray-600">필요 노출수</span>
+                                    <p className="text-lg font-bold">{formatNumber(metrics.impressions)}회</p>
+                                </div>
+                                <div className="border-b pb-2">
+                                    <span className="text-sm text-gray-600">필요 클릭수</span>
+                                    <p className="text-lg font-bold">{formatNumber(metrics.clicks)}회</p>
+                                </div>
+                                <div className="border-b pb-2">
+                                    <span className="text-sm text-gray-600">예상 전환수</span>
+                                    <p className="text-lg font-bold">{formatNumber(metrics.conversions)}건</p>
+                                </div>
+                                <div className="border-b pb-2">
+                                    <span className="text-sm text-gray-600">예상 매출</span>
+                                    <p className="text-lg font-bold">{formatCurrency(metrics.actualRevenue)}</p>
+                                </div>
+                                <div className="border-b pb-2">
+                                    <span className="text-sm text-gray-600">매출총이익률</span>
+                                    <p className="text-lg font-bold">{metrics.grossMargin.toFixed(1)}%</p>
+                                </div>
+                                <div className="border-b pb-2">
+                                    <span className="text-sm text-gray-600">CPM</span>
+                                    <p className="text-lg font-bold">{formatCurrency(metrics.cpm)}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 저장된 시나리오 */}
+                        {savedScenarios.length > 0 && (
+                            <div className="bg-white rounded-lg shadow p-4 mt-6">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4">📋 저장된 시나리오</h3>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full text-sm">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left">저장시간</th>
+                                                <th className="px-3 py-2 text-center">CVR</th>
+                                                <th className="px-3 py-2 text-center">CTR</th>
+                                                <th className="px-3 py-2 text-right">순이익</th>
+                                                <th className="px-3 py-2 text-center">ROAS</th>
+                                                <th className="px-3 py-2 text-center">ROI</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                            {savedScenarios.map((scenario) => (
+                                                <tr key={scenario.id}>
+                                                    <td className="px-3 py-2">{scenario.저장시간}</td>
+                                                    <td className="px-3 py-2 text-center">{scenario.CVR}%</td>
+                                                    <td className="px-3 py-2 text-center">{scenario.CTR}%</td>
+                                                    <td className="px-3 py-2 text-right font-bold" style={{ color: scenario.순이익 >= 0 ? '#155724' : '#721c24' }}>
+                                                        {formatCurrency(scenario.순이익)}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-center">{scenario.ROAS.toFixed(2)}x</td>
+                                                    <td className="px-3 py-2 text-center">{scenario.ROI.toFixed(0)}%</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // React 렌더링
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ProfitabilityDashboard />);
+    </script>
 </body>
 </html>
